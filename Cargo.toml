@@ -1,0 +1,19 @@
+[package]
+name = "rusty_gfx"
+version = "0.1.0"
+authors = ["Nathan Stocks <nathan@agileperception.com>"]
+edition = "2018"
+description = "Library for simple OpenGL window creation and graphics drawing for educational purposes."
+homepage = "https://github.com/cleancut/rusty_gfx"
+repository = "https://github.com/CleanCut/rusty_gfx"
+readme = "README.md"
+keywords = ["rusty", "learn", "educational", "graphics", "opengl"]
+categories = ["game-development", "graphics", "rendering"]
+license = "MIT OR Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glium = "0.26.0"
+nalgebra = "0.19.0"
+image = "0.21.0"
