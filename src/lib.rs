@@ -21,7 +21,8 @@ use glium::{
 use std::f64::consts::PI;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
-use nalgebra::Vector2;
+
+pub type Vector2 = nalgebra::Vector2<f32>;
 
 /// A color with 32-bit float parts from `[0.0, 1.0]` suitable for OpenGL.
 #[derive(Copy, Clone, Debug)]
@@ -90,7 +91,7 @@ pub enum GameEvent {
     /// Indicates the current position the mouse has moved to.  The mouse is now at this location in
     /// OpenGL coordinates.  Note that on some operating systems this event will fire even if the
     /// cursor is outside the bounds of the window.
-    MouseMoved { position: Vector2<f32> },
+    MouseMoved { position: Vector2 },
     /// Indicates that a button with variant `ButtonValue` has been either pressed or released
     /// (variant of `ButtonState`).  Note that both mouse buttons and keyboard buttons are
     /// abstracted and collected together into a few logical game buttons.
@@ -151,7 +152,7 @@ fn create_ring_vertices(radius: f32, num_vertices: usize, color: Color) -> Vec<S
 /// methods to make a `Shape`.
 #[derive(Debug)]
 pub struct Shape {
-    pub pos: Vector2<f32>,
+    pub pos: Vector2,
     pub direction: f32,
     vertex_buffer: VertexBuffer<ShapeVertex>,
     indices: NoIndices,
@@ -162,7 +163,7 @@ impl Shape {
     pub fn new_circle(
         window: &Window,
         radius: f32,
-        pos: Vector2<f32>,
+        pos: Vector2,
         direction: f32,
         color: Color,
     ) -> Self {
@@ -179,7 +180,7 @@ impl Shape {
     pub fn new_ring(
         window: &Window,
         radius: f32,
-        pos: Vector2<f32>,
+        pos: Vector2,
         direction: f32,
         color: Color,
     ) -> Self {
@@ -216,7 +217,7 @@ implement_vertex!(ImgVertex, position, tex_coords, color, tint);
 /// to work.  Or just exporting as a 24-bit PNG might work.
 #[derive(Debug)]
 pub struct Img {
-    pub pos: Vector2<f32>,
+    pub pos: Vector2,
     pub direction: f32,
     vertex_buffer: VertexBuffer<ImgVertex>,
     index_buffer: IndexBuffer<u16>,
@@ -229,7 +230,7 @@ impl Img {
     /// `soldier.png` in it, then your filename would be `media/soldier.png`.
     pub fn new(
         window: &Window,
-        pos: Vector2<f32>,
+        pos: Vector2,
         direction: f32,
         color: Option<Color>,
         filename: &str,
@@ -300,7 +301,7 @@ pub struct Window {
     display: Display,
     shape_program: Program,
     img_program: Program,
-    screen_to_opengl: Box<dyn Fn(PhysicalPosition<f64>) -> Vector2<f32>>,
+    screen_to_opengl: Box<dyn Fn(PhysicalPosition<f64>) -> Vector2>,
     target: Option<Frame>,
 }
 
@@ -330,7 +331,7 @@ impl Window {
         // Create a closure that captures current screen information to use to
         // do local screen coordinate conversion for us.
         let inverse_half_dimension = 1.0 / (dimension as f32 * 0.5);
-        let screen_to_opengl = Box::new(move |pos: PhysicalPosition<f64>| -> Vector2<f32> {
+        let screen_to_opengl = Box::new(move |pos: PhysicalPosition<f64>| -> Vector2 {
             let logical_pos: (f64, f64) = pos.to_logical::<f64>(scale_factor).into();
             let x = (logical_pos.0 as f32 * inverse_half_dimension) - 1.0;
             let y = 1.0 - (logical_pos.1 as f32 * inverse_half_dimension);

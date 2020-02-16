@@ -1,6 +1,6 @@
 [package]
 name = "rusty_gfx"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nathan Stocks <nathan@agileperception.com>"]
 edition = "2018"
 description = "Library for simple OpenGL window creation and graphics drawing for educational purposes."
