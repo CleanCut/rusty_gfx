@@ -1,7 +1,5 @@
 //! The OpenGL window is (-1.0, -1.0) in the bottom left to (1.0, 1.0) in the top right.
 
-//use crate::game::{ButtonState, ButtonValue, Color, GameEvent};
-
 use glium::{
     glutin::{
         dpi::{LogicalSize, PhysicalPosition},
@@ -18,6 +16,7 @@ use glium::{
     uniform, Blend, Display, DrawParameters, Frame, IndexBuffer, Program, Smooth, Surface,
     VertexBuffer,
 };
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
@@ -25,7 +24,7 @@ use std::hash::{Hash, Hasher};
 pub type Vector2 = nalgebra::Vector2<f32>;
 
 /// A color with 32-bit float parts from `[0.0, 1.0]` suitable for OpenGL.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct Color {
     /// Red
     pub r: f32,
@@ -58,7 +57,7 @@ impl PartialEq for Color {
 
 /// Abstracted button values you may receive (arrow keys and WASD keys combined into directions, for
 /// example)
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum ButtonValue {
     /// An abstracted button that combines: Arrow Up, W, Comma (Dvorak)
     Up,
@@ -74,7 +73,7 @@ pub enum ButtonValue {
 }
 
 /// Whether a button was pressed or released
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum ButtonState {
     /// A button was just pressed
     Pressed,
@@ -84,7 +83,7 @@ pub enum ButtonState {
 
 /// `GameEvent` represents game events caused by a user, such as the mouse moving around, buttons
 /// being pushed, or the window being closed.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum GameEvent {
     /// The user pressed Escape or closed the window. We should quit the game.
     Quit,
