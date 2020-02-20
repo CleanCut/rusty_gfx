@@ -21,6 +21,9 @@ use std::f64::consts::PI;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
 
+/// 2D Vector (x, y) that can represent coordinates in OpenGL space that fill your window, or
+/// velocity, or whatever other two f32 values you need.  The OpenGL window is (-1.0, -1.0) in
+/// the bottom left to (1.0, 1.0) in the top right.
 pub type Vector2 = nalgebra::Vector2<f32>;
 
 /// A color with 32-bit float parts from `[0.0, 1.0]` suitable for OpenGL.
@@ -98,6 +101,66 @@ pub enum GameEvent {
         button_value: ButtonValue,
         button_state: ButtonState,
     },
+}
+
+/// Stateful, stack-based button processor.  You can use this to process button state/values and
+/// update a `PlayerInput` that you can send to the server.  Also handles the attack button.
+#[derive(Default)]
+pub struct ButtonProcessor {
+    horizontal: Vec<ButtonValue>,
+    vertical: Vec<ButtonValue>,
+}
+
+impl ButtonProcessor {
+    /// Create a new `ButtonProcessor`
+    pub fn new() -> Self {
+        Self {
+            horizontal: Vec::new(),
+            vertical: Vec::new(),
+        }
+    }
+    /// Process one button, and update the PlayerInput accordingly. Handles movement & attack.
+    pub fn process(
+        &mut self,
+        button_state: ButtonState,
+        button_value: ButtonValue,
+        player_input: &mut PlayerInput,
+    ) {
+        match button_state {
+            ButtonState::Pressed => match button_value {
+                ButtonValue::Up | ButtonValue::Down => self.vertical.push(button_value),
+                ButtonValue::Left | ButtonValue::Right => self.horizontal.push(button_value),
+                ButtonValue::Attack => player_input.attack = true,
+            },
+            ButtonState::Released => match button_value {
+                ButtonValue::Up | ButtonValue::Down => self.vertical.retain(|&x| x != button_value),
+                ButtonValue::Left | ButtonValue::Right => {
+                    self.horizontal.retain(|&x| x != button_value)
+                }
+                ButtonValue::Attack => player_input.attack = false,
+            },
+        }
+        // Set horizontal movement based on the stack
+        if let Some(last_horiz) = self.horizontal.last() {
+            match last_horiz {
+                ButtonValue::Left => player_input.move_amount.x = -1.0,
+                ButtonValue::Right => player_input.move_amount.x = 1.0,
+                _ => {}
+            }
+        } else {
+            player_input.move_amount.x = 0.0;
+        }
+        // Set vertical movement based on the stack
+        if let Some(last_vert) = self.vertical.last() {
+            match last_vert {
+                ButtonValue::Up => player_input.move_amount.y = 1.0,
+                ButtonValue::Down => player_input.move_amount.y = -1.0,
+                _ => {}
+            }
+        } else {
+            player_input.move_amount.y = 0.0;
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
