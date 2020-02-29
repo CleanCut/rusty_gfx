@@ -16,15 +16,31 @@ use glium::{
     uniform, Blend, Display, DrawParameters, Frame, IndexBuffer, Program, Smooth, Surface,
     VertexBuffer,
 };
+use rand::prelude::Rng;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
 
-/// 2D Vector (x, y) that can represent coordinates in OpenGL space that fill your window, or
-/// velocity, or whatever other two f32 values you need.  The OpenGL window is (-1.0, -1.0) in
-/// the bottom left to (1.0, 1.0) in the top right.
-pub type Vector2 = nalgebra::Vector2<f32>;
+pub use nalgebra_glm::{distance, Vec2};
+
+
+pub fn clamp_vec_to_magnitude(v: &mut Vec2, magnitude: f32) {
+    if v.magnitude() > magnitude {
+        v.data = (v.normalize() * magnitude).data;
+    }
+}
+
+pub fn angle_facing(v1: &Vec2, v2: &Vec2) -> f32 {
+    (v2.data[1] - v1.data[1]).atan2(v2.data[0] - v1.data[0])
+}
+
+pub fn new_in_square<T: Rng>(dimension: f32, rng: &mut T) -> Vec2 {
+    Vec2::new(
+        rng.gen_range(-dimension, dimension),
+        rng.gen_range(-dimension, dimension),
+    )
+}
 
 /// A color with 32-bit float parts from `[0.0, 1.0]` suitable for OpenGL.
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
@@ -70,9 +86,16 @@ pub enum ButtonValue {
     Left,
     /// An abstracted button that combines: Arrow Right, D, E (Dvorak)
     Right,
-    /// An abstracted button that combines: Left Mouse Button, Space Bar, Backspace (Kinesis
-    /// Advantage Keyboard)
-    Attack,
+    /// An abstracted button that combines: Left Mouse Button, Space Bar, Backspace
+    Action1,
+    /// An abstracted button that combines: Right Mouse Button, Enter, Return
+    Action2,
+    /// An abstracted button that combines: Any other Mouse Button, Tab
+    Action3,
+    /// An abstracted button that combines: =/+ key
+    Increase,
+    /// An abstracted button that combines: -/_ key
+    Decrease,
 }
 
 /// Whether a button was pressed or released
@@ -93,7 +116,7 @@ pub enum GameEvent {
     /// Indicates the current position the mouse has moved to.  The mouse is now at this location in
     /// OpenGL coordinates.  Note that on some operating systems this event will fire even if the
     /// cursor is outside the bounds of the window.
-    MouseMoved { position: Vector2 },
+    MouseMoved { position: Vec2 },
     /// Indicates that a button with variant `ButtonValue` has been either pressed or released
     /// (variant of `ButtonState`).  Note that both mouse buttons and keyboard buttons are
     /// abstracted and collected together into a few logical game buttons.
@@ -101,66 +124,6 @@ pub enum GameEvent {
         button_value: ButtonValue,
         button_state: ButtonState,
     },
-}
-
-/// Stateful, stack-based button processor.  You can use this to process button state/values and
-/// update a `PlayerInput` that you can send to the server.  Also handles the attack button.
-#[derive(Default)]
-pub struct ButtonProcessor {
-    horizontal: Vec<ButtonValue>,
-    vertical: Vec<ButtonValue>,
-}
-
-impl ButtonProcessor {
-    /// Create a new `ButtonProcessor`
-    pub fn new() -> Self {
-        Self {
-            horizontal: Vec::new(),
-            vertical: Vec::new(),
-        }
-    }
-    /// Process one button, and update the PlayerInput accordingly. Handles movement & attack.
-    pub fn process(
-        &mut self,
-        button_state: ButtonState,
-        button_value: ButtonValue,
-        player_input: &mut PlayerInput,
-    ) {
-        match button_state {
-            ButtonState::Pressed => match button_value {
-                ButtonValue::Up | ButtonValue::Down => self.vertical.push(button_value),
-                ButtonValue::Left | ButtonValue::Right => self.horizontal.push(button_value),
-                ButtonValue::Attack => player_input.attack = true,
-            },
-            ButtonState::Released => match button_value {
-                ButtonValue::Up | ButtonValue::Down => self.vertical.retain(|&x| x != button_value),
-                ButtonValue::Left | ButtonValue::Right => {
-                    self.horizontal.retain(|&x| x != button_value)
-                }
-                ButtonValue::Attack => player_input.attack = false,
-            },
-        }
-        // Set horizontal movement based on the stack
-        if let Some(last_horiz) = self.horizontal.last() {
-            match last_horiz {
-                ButtonValue::Left => player_input.move_amount.x = -1.0,
-                ButtonValue::Right => player_input.move_amount.x = 1.0,
-                _ => {}
-            }
-        } else {
-            player_input.move_amount.x = 0.0;
-        }
-        // Set vertical movement based on the stack
-        if let Some(last_vert) = self.vertical.last() {
-            match last_vert {
-                ButtonValue::Up => player_input.move_amount.y = 1.0,
-                ButtonValue::Down => player_input.move_amount.y = -1.0,
-                _ => {}
-            }
-        } else {
-            player_input.move_amount.y = 0.0;
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -214,7 +177,7 @@ fn create_ring_vertices(radius: f32, num_vertices: usize, color: Color) -> Vec<S
 /// methods to make a `Shape`.
 #[derive(Debug)]
 pub struct Shape {
-    pub pos: Vector2,
+    pub pos: Vec2,
     pub direction: f32,
     vertex_buffer: VertexBuffer<ShapeVertex>,
     indices: NoIndices,
@@ -225,7 +188,7 @@ impl Shape {
     pub fn new_circle(
         window: &Window,
         radius: f32,
-        pos: Vector2,
+        pos: Vec2,
         direction: f32,
         color: Color,
     ) -> Self {
@@ -242,7 +205,7 @@ impl Shape {
     pub fn new_ring(
         window: &Window,
         radius: f32,
-        pos: Vector2,
+        pos: Vec2,
         direction: f32,
         color: Color,
     ) -> Self {
@@ -279,7 +242,7 @@ implement_vertex!(ImgVertex, position, tex_coords, color, tint);
 /// to work.  Or just exporting as a 24-bit PNG might work.
 #[derive(Debug)]
 pub struct Img {
-    pub pos: Vector2,
+    pub pos: Vec2,
     pub direction: f32,
     vertex_buffer: VertexBuffer<ImgVertex>,
     index_buffer: IndexBuffer<u16>,
@@ -292,7 +255,7 @@ impl Img {
     /// `soldier.png` in it, then your filename would be `media/soldier.png`.
     pub fn new(
         window: &Window,
-        pos: Vector2,
+        pos: Vec2,
         direction: f32,
         color: Option<Color>,
         filename: &str,
@@ -363,7 +326,7 @@ pub struct Window {
     display: Display,
     shape_program: Program,
     img_program: Program,
-    screen_to_opengl: Box<dyn Fn(PhysicalPosition<f64>) -> Vector2>,
+    screen_to_opengl: Box<dyn Fn(PhysicalPosition<f64>) -> Vec2>,
     target: Option<Frame>,
 }
 
@@ -393,11 +356,11 @@ impl Window {
         // Create a closure that captures current screen information to use to
         // do local screen coordinate conversion for us.
         let inverse_half_dimension = 1.0 / (dimension as f32 * 0.5);
-        let screen_to_opengl = Box::new(move |pos: PhysicalPosition<f64>| -> Vector2 {
+        let screen_to_opengl = Box::new(move |pos: PhysicalPosition<f64>| -> Vec2 {
             let logical_pos: (f64, f64) = pos.to_logical::<f64>(scale_factor).into();
             let x = (logical_pos.0 as f32 * inverse_half_dimension) - 1.0;
             let y = 1.0 - (logical_pos.1 as f32 * inverse_half_dimension);
-            Vector2::new(x, y)
+            Vec2::new(x, y)
         });
 
         // For drawing shapes
@@ -656,23 +619,45 @@ impl Window {
                                 Escape => events.push(GameEvent::Quit),
                                 Space | Delete => events.push(GameEvent::Button {
                                     button_state,
-                                    button_value: ButtonValue::Attack,
+                                    button_value: ButtonValue::Action1,
+                                }),
+                                NumpadEnter | Return => events.push(GameEvent::Button {
+                                    button_state,
+                                    button_value: ButtonValue::Action2,
+                                }),
+                                Tab => events.push(GameEvent::Button {
+                                    button_state,
+                                    button_value: ButtonValue::Action3,
+                                }),
+                                // Equals covers the +/= key.
+                                Equals => events.push( GameEvent::Button {
+                                    button_state,
+                                    button_value: ButtonValue::Increase,
+                                }),
+                                // Minus covers the -/_ key.
+                                Minus => events.push(GameEvent::Button {
+                                    button_state,
+                                    button_value: ButtonValue::Decrease,
                                 }),
                                 _ => (),
                             }
                         }
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
-                        if button == MouseButton::Left {
-                            let button_state = match state {
-                                ElementState::Pressed => ButtonState::Pressed,
-                                ElementState::Released => ButtonState::Released,
-                            };
-                            events.push(GameEvent::Button {
-                                button_state,
-                                button_value: ButtonValue::Attack,
-                            });
-                        }
+                        let button_state = match state {
+                            ElementState::Pressed => ButtonState::Pressed,
+                            ElementState::Released => ButtonState::Released,
+                        };
+                        events.push(GameEvent::Button {
+                            button_state,
+                            button_value: {
+                                match button {
+                                    MouseButton::Left => ButtonValue::Action1,
+                                    MouseButton::Right => ButtonValue::Action2,
+                                    MouseButton::Middle | MouseButton::Other(_) => ButtonValue::Action3,
+                                }
+                            },
+                        });
                     }
                     _ => (),
                 }
