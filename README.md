@@ -1,6 +1,6 @@
 # Rusty GFX
 
-`rusty_gfx` is now [part] of [`rusty_engine`]
+`rusty_gfx` was added as a [workspace crate] of [`rusty_engine`]...and then discontinued altogether after `v0.11.0`
 
-[part]: https://github.com/cleancut/rusty_engine/tree/master/rusty_gfx
+[workspace crate]: https://github.com/CleanCut/rusty_engine/tree/0.11.0/rusty_gfx
  [`rusty_engine`]: https://github.com/cleancut/rusty_engine
